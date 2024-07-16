@@ -123,7 +123,7 @@ export default {
 
 async function handleVlSub(goodIps, userID, request, israw, reqSpeed) {
 	const hostname = request.headers.get('Host');
-	const newProxiesList = generateProxiesList(goodIps, userID, hostname, reqSpeed, 'v');
+	const newProxiesList = generateProxiesList(goodIps, userID, hostname, reqSpeed, 1, 'v');
 
 	let theSub = newProxiesList.join('');
 	if (!israw) {
@@ -142,9 +142,14 @@ async function handleClSub(goodIps, clash_template_url, userID, request, reqSpee
 	const clashConfigTemplate = await templateResponse.text();
 	const hostname = request.headers.get('Host');
 
-	const { newProxiesList, newProxiesNameList } = generateProxiesList(goodIps, userID, hostname, reqSpeed, 'c');
+	const { newProxiesList, newProxiesNameList, topBestSpeedIpList } = generateProxiesList(goodIps, userID, hostname, reqSpeed, 5, 'c');
 
-	let updatedConfig = clashConfigTemplate;
+	// 替换配置文件中的 {{topip[0]}} 占位符
+	let updatedConfig = clashConfigTemplate.replace(
+		/{{topip\[(\d+)\]}}/g,
+		(match, index) => topBestSpeedIpList[index] // 使用 index 参数来获取匹配到的索引，并从 topBestSpeedIpList 中获取对应的 IP
+	);
+
 	updatedConfig = updatedConfig.replace(
 		/^\s*#(\s*)- {{proxies_list}}/gm,
 		`$1${newProxiesList.join(`$1`)}`
@@ -162,50 +167,60 @@ async function handleClSub(goodIps, clash_template_url, userID, request, reqSpee
 	});
 }
 
-function generateProxiesList(goodIps, userID, hostname, reqSpeed, type) {
-	const newProxiesList = [];
-	const newProxiesNameList = [];
-	const proto = atob(MPRO);
+function generateProxiesList(goodIps, userID, hostname, reqSpeed, topBestIPCount, type) {
+    const newProxiesList = [];
+    const newProxiesNameList = [];
+    const bestSpeedIpList = [];
+    const proto = atob(MPRO);
 
-	goodIps.forEach(goodIP => {
-		if (!goodIP.proxyIP || goodIP.proxyIP.length === 0) {
-			return;
-		}
+    goodIps.forEach(goodIP => {
+        if (!goodIP.proxyIP || goodIP.proxyIP.length === 0) {
+            return;
+        }
 
-		let specProxyIp = goodIP.proxyIP[0];
-		const cfIPCount = goodIP.cfIP ? goodIP.cfIP.length : 0;
+        let specProxyIp = goodIP.proxyIP[0];
+        const cfIPCount = goodIP.cfIP ? goodIP.cfIP.length : 0;
 
-		for (let i = 0; i < goodIP.proxyIP.length + cfIPCount; i++) {
-			let thisProxyIp;
-			if (i < goodIP.proxyIP.length) {
-				if (goodIP.proxyIPSpeed && reqSpeed > goodIP.proxyIPSpeed[i]) {
-				continue;
-				}
-				thisProxyIp = goodIP.proxyIP[i];
-				specProxyIp = thisProxyIp;
-			} else {
-				if (goodIP.cfIPSpeed && reqSpeed > goodIP.cfIPSpeed[i - goodIP.proxyIP.length]) {
-				continue;
-				}
-				thisProxyIp = goodIP.cfIP[i - goodIP.proxyIP.length];
-			}
+        for (let i = 0; i < goodIP.proxyIP.length + cfIPCount; i++) {
+            let thisProxyIp;
+            let speed;
 
-			if (type === 'v') {
-				newProxiesList.push(`${proto}://${userID}@${thisProxyIp}:443?encryption=none&security=tls&type=ws&host=${hostname}&sni=${hostname}&fp=random&path=%2Fproxyip%3D${specProxyIp}%2F%3Fed%3D2176#${goodIP.country}${i}\n`);
-			} else if (type === 'c') {
-				newProxiesList.push(`- {"name":"${goodIP.country}${i}","type":"${proto}","server":"${thisProxyIp}","port":443,"uuid":"${userID}","tls":true,"servername":"${hostname}","network":"ws","ws-opts":{"path":"/proxyip=${specProxyIp}?ed=2176","headers":{"host":"${hostname}"}}}\n`);
-				newProxiesNameList.push(`- ${goodIP.country}${i}\n`);
-			}
-		}
-	});
+            if (i < goodIP.proxyIP.length) {
+                if (goodIP.proxyIPSpeed && reqSpeed > goodIP.proxyIPSpeed[i]) {
+                    continue;
+                }
+                thisProxyIp = goodIP.proxyIP[i];
+                speed = goodIP.proxyIPSpeed[i];
+                specProxyIp = thisProxyIp;
+            } else {
+                if (goodIP.cfIPSpeed && reqSpeed > goodIP.cfIPSpeed[i - goodIP.proxyIP.length]) {
+                    continue;
+                }
+                thisProxyIp = goodIP.cfIP[i - goodIP.proxyIP.length];
+                speed = goodIP.cfIPSpeed[i - goodIP.proxyIP.length];
+            }
 
-	if (type === 'v') {
-		return newProxiesList;
-	} else if (type === 'c') {
-		return { newProxiesList, newProxiesNameList };
-	}
+            if (type === 'v') {
+                newProxiesList.push(`${proto}://${userID}@${thisProxyIp}:443?encryption=none&security=tls&type=ws&host=${hostname}&sni=${hostname}&fp=random&path=%2Fproxyip%3D${specProxyIp}%2F%3Fed%3D2176#${goodIP.country}${i}\n`);
+            } else if (type === 'c') {
+                newProxiesList.push(`- {"name":"${goodIP.country}${i}","type":"${proto}","server":"${thisProxyIp}","port":443,"uuid":"${userID}","tls":true,"servername":"${hostname}","network":"ws","ws-opts":{"path":"/proxyip=${specProxyIp}?ed=2176","headers":{"host":"${hostname}"}}}\n`);
+                newProxiesNameList.push(`- ${goodIP.country}${i}\n`);
+            }
+
+            bestSpeedIpList.push({ ip: thisProxyIp, speed });
+        }
+    });
+
+    bestSpeedIpList.sort((a, b) => b.speed - a.speed);
+    const topBestSpeedIpList = bestSpeedIpList.slice(0, topBestIPCount).map(item => item.ip);
+
+    if (type === 'v') {
+        return newProxiesList;
+    } else if (type === 'c') {
+        return { newProxiesList, newProxiesNameList, topBestSpeedIpList };
+    }
 }
-  
+
 async function handleStoreRequest(request, env) {
 	try {
 	  // 解析请求体中的JSON
