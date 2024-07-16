@@ -18,7 +18,7 @@ const MPRO = 'dmxlc3M=';
 // default random proxyIP pools
 const proxyIPs = [""]; //workers.cloudflare.cyou bestproxy.onecf.eu.org cdn-all.xn--b6gac.eu.org cdn.xn--b6gac.eu.org
 
-let clash_template_url = "https://raw.githubusercontent.com/VxNull/ClashTemplate/main/v2aryse_clash_meta_templ.yaml";
+let clash_template_url = "https://raw.githubusercontent.com/VxNull/ClashTemplate/main/v2aryse_clash_meta_templ_v2.yaml";
 
 let proxyIP = proxyIPs[Math.floor(Math.random() * proxyIPs.length)];
 

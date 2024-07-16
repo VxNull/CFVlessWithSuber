@@ -34,7 +34,7 @@ Vless script work on CF worker and pages with suber
    | 变量            | 说明                                                         | 示例                                                         |
    | --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
    | UUID            | Vless节点UUID，将覆盖代码中的值                              | 89a571fb-4fd2-4b37-8596-1b7d9728af45                         |
-   | CLASH_TEMPL_URL | Clash模板文件地址，建议采用github raw文件地址。模板文件中插入节点的地方填写：`#  - {{proxies_list}}`，要插入节点组名的地方填入：`#      - {{proxies_name_list}}`，可以参考默认的模板文件。 | https://raw.githubusercontent.com/VxNull/ClashTemplate/main/v2aryse_clash_meta_templ.yaml |
+   | CLASH_TEMPL_URL | Clash模板文件地址，建议采用github raw文件地址。模板文件中插入节点的地方填写：`#  - {{proxies_list}}`，要插入节点组名的地方填入：`#      - {{proxies_name_list}}`，可以参考默认的模板文件。 | https://raw.githubusercontent.com/VxNull/ClashTemplate/main/v2aryse_clash_meta_templ_v2.yaml |
    | SHORT_SEC_URL   | 修改地址URL访问，用于取代订阅地址中的[UUID]字段以方便人工输入使用。请注意安全保密，并建议取值16个及以上无规律字符串防止被扫。 | 订阅地址：https://vless.xxxxxxxxx.xyz/[SHORT_SEC_URL]        |
    | ACCESS_KEY      | 配合绑定KV使用后，用于Post修改KV值的API安全加强认证，启用该变量后，要求在Post 的Header里带上：`Access-Key: [ACCESS_KEY]`才能访问。 | Post请求：https://vless.xxxxxxxxx.xyz/[UUID]，同时配置好Header信息：`Access-Key: [ACCESS_KEY]` |
 
@@ -78,7 +78,7 @@ Vless script work on CF worker and pages with suber
    
    
    
-   默认的模板文件：https://raw.githubusercontent.com/VxNull/ClashTemplate/main/v2aryse_clash_meta_templ.yaml
+   默认的模板文件：https://raw.githubusercontent.com/VxNull/ClashTemplate/main/v2aryse_clash_meta_templ_v2.yaml
    
    自定义模板文件地址通过变量`CLASH_TEMPL_URL`指定。
    
