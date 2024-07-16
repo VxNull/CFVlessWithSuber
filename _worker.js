@@ -212,12 +212,13 @@ function generateProxiesList(goodIps, userID, hostname, reqSpeed, topBestIPCount
             return;
         }
 
-		let proxyGroupCountry;
+		let proxyGroupCountry = {
+			country: `${goodIP.country}`,
+			proxies: []
+		};
         let specProxyIp = goodIP.proxyIP[0];
         const cfIPCount = goodIP.cfIP ? goodIP.cfIP.length : 0;
 
-		proxyGroupCountry.country = `${goodIP.country}`;
-		proxyGroupCountry.proxies = [];
         for (let i = 0; i < goodIP.proxyIP.length + cfIPCount; i++) {
             let thisProxyIp;
             let speed;
