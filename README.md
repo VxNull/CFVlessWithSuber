@@ -62,12 +62,26 @@ Vless script work on CF worker and pages with suber
 
    ![WXWorkCapture_17187021301456](https://github.com/VxNull/CFVlessWithSuber/blob/main/doc/WXWorkCapture_17187021301456.png)
    
-   所以只需要在Clash模板文件中插入节点的地方填写：`#  - {{proxies_list}}`，要插入节点组名的地方填入：`#      - {{proxies_name_list}}`。
+   所以只需要在Clash模板文件中插入对应的参数即可，如：
 
+   - 要插入节点的地方填写：`#  - {{proxies_list}}`；
+   - 要插入节点组名的地方填入：`#      - {{proxies_name_list}}`；
+
+   所有的参数说明如下：
+   | 插入参数                                      | 说明                                                         | 备注                                         |
+   | --------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------- |
+   | `#  - {{proxies_list}}`                       | 所有`节点列表`，对应clash的`proxies:`下属项                  | 会自动计算`#`与`-`号之间的空格数，以补充对齐 |
+   | `#      - {{proxies_name_list}}`              | 所有`节点组名列表`，对应clash的`proxy-groups:`-`proxies:`下属目 |                                              |
+   | `#  - {{proxy_groups_list_by_country}}`       | 按国家归类生成的负载均衡组详细信息，放在`proxy-groups:`下属  |                                              |
+   | `#      - {{proxy_groups_country_name_list}}` | 按国家归类生成的负载均衡组名列表，放在`proxy-groups:`-`proxies:`下 |                                              |
+   | `{{topip[0]}}`……`{{topip[4]}}`                | 自动替换下载速度最高的前5个IP地址。通常用于替换已有节点的`"server":`地址 | 方便用于自由生成聚合订阅信息                 |
+   
+   
+   
    默认的模板文件：https://raw.githubusercontent.com/VxNull/ClashTemplate/main/v2aryse_clash_meta_templ.yaml
-
+   
    自定义模板文件地址通过变量`CLASH_TEMPL_URL`指定。
-
+   
    
 ## 声明
 
