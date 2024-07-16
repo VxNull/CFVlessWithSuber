@@ -123,7 +123,7 @@ export default {
 
 async function handleVlSub(goodIps, userID, request, israw, reqSpeed) {
 	const hostname = request.headers.get('Host');
-	const newProxiesList = generateProxiesList(goodIps, userID, hostname, reqSpeed, 'v');
+	const newProxiesList = generateProxiesList(goodIps, userID, hostname, reqSpeed, 1, 'v');
 
 	let theSub = newProxiesList.join('');
 	if (!israw) {
@@ -142,9 +142,45 @@ async function handleClSub(goodIps, clash_template_url, userID, request, reqSpee
 	const clashConfigTemplate = await templateResponse.text();
 	const hostname = request.headers.get('Host');
 
-	const { newProxiesList, newProxiesNameList } = generateProxiesList(goodIps, userID, hostname, reqSpeed, 'c');
+	const { newProxiesList, newProxiesNameList, topBestSpeedIpList, proxyGroupCountryList } = generateProxiesList(goodIps, userID, hostname, reqSpeed, 5, 'c');
 
-	let updatedConfig = clashConfigTemplate;
+	// 替换配置文件中的 {{topip[0]}} 占位符
+	let updatedConfig = clashConfigTemplate.replace(
+		/{{topip\[(\d+)\]}}/g,
+		(match, index) => topBestSpeedIpList[index] // 使用 index 参数来获取匹配到的索引，并从 topBestSpeedIpList 中获取对应的 IP
+	);
+
+	//proxyGroupCountryList生成proxy_groups_country_name_list
+	let proxy_groups_country_name_list = proxyGroupCountryList.map(proxyGroup => {
+		return `- ${proxyGroup.country}\n`;
+	});
+
+	//替换#      - {{proxy_groups_country_name_list}}
+	updatedConfig = updatedConfig.replace(
+		/^\s*#(\s*)- {{proxy_groups_country_name_list}}/gm,
+		`$1${proxy_groups_country_name_list.join(`$1`)}`
+	);
+
+	// proxyGroupCountryList 生成 proxy_groups_list_by_country
+	let proxy_groups_list_by_country = [];
+	proxyGroupCountryList.forEach(proxyGroup => {
+		proxy_groups_list_by_country.push(`- name: ${proxyGroup.country}\n`);
+		proxy_groups_list_by_country.push(`  type: load-balance\n`);
+		proxy_groups_list_by_country.push(`  proxies:\n`);
+		let proxies = proxyGroup.proxies;
+		if (proxies && proxies.length) {
+			proxies.forEach(proxy => {
+				proxy_groups_list_by_country.push(`    - ${proxy}\n`);
+			});
+		}
+	});
+
+	//替换 #  - {{proxy_groups_list_by_country}}
+	updatedConfig = updatedConfig.replace(
+		/^\s*#(\s*)- {{proxy_groups_list_by_country}}/gm,
+		`$1${proxy_groups_list_by_country.join(`$1`)}`
+	);
+
 	updatedConfig = updatedConfig.replace(
 		/^\s*#(\s*)- {{proxies_list}}/gm,
 		`$1${newProxiesList.join(`$1`)}`
@@ -162,50 +198,70 @@ async function handleClSub(goodIps, clash_template_url, userID, request, reqSpee
 	});
 }
 
-function generateProxiesList(goodIps, userID, hostname, reqSpeed, type) {
-	const newProxiesList = [];
-	const newProxiesNameList = [];
-	const proto = atob(MPRO);
+function generateProxiesList(goodIps, userID, hostname, reqSpeed, topBestIPCount, type) {
+    const newProxiesList = [];
+    const newProxiesNameList = [];
+    const bestSpeedIpList = [];
+    const proto = atob(MPRO);
 
-	goodIps.forEach(goodIP => {
-		if (!goodIP.proxyIP || goodIP.proxyIP.length === 0) {
-			return;
+	//#      - {{proxy_groups_country_name_list}}
+	const proxyGroupCountryList = [];
+
+    goodIps.forEach(goodIP => {
+        if (!goodIP.proxyIP || goodIP.proxyIP.length === 0) {
+            return;
+        }
+
+		let proxyGroupCountry;
+        let specProxyIp = goodIP.proxyIP[0];
+        const cfIPCount = goodIP.cfIP ? goodIP.cfIP.length : 0;
+
+		proxyGroupCountry.country = `${goodIP.country}`;
+		proxyGroupCountry.proxies = [];
+        for (let i = 0; i < goodIP.proxyIP.length + cfIPCount; i++) {
+            let thisProxyIp;
+            let speed;
+
+            if (i < goodIP.proxyIP.length) {
+                if (goodIP.proxyIPSpeed && reqSpeed > goodIP.proxyIPSpeed[i]) {
+                    continue;
+                }
+                thisProxyIp = goodIP.proxyIP[i];
+                speed = goodIP.proxyIPSpeed[i];
+                specProxyIp = thisProxyIp;
+            } else {
+                if (goodIP.cfIPSpeed && reqSpeed > goodIP.cfIPSpeed[i - goodIP.proxyIP.length]) {
+                    continue;
+                }
+                thisProxyIp = goodIP.cfIP[i - goodIP.proxyIP.length];
+                speed = goodIP.cfIPSpeed[i - goodIP.proxyIP.length];
+            }
+
+            if (type === 'v') {
+                newProxiesList.push(`${proto}://${userID}@${thisProxyIp}:443?encryption=none&security=tls&type=ws&host=${hostname}&sni=${hostname}&fp=random&path=%2Fproxyip%3D${specProxyIp}%2F%3Fed%3D2176#${goodIP.country}${i}\n`);
+            } else if (type === 'c') {
+                newProxiesList.push(`- {"name":"${goodIP.country}${i}","type":"${proto}","server":"${thisProxyIp}","port":443,"uuid":"${userID}","tls":true,"servername":"${hostname}","network":"ws","ws-opts":{"path":"/proxyip=${specProxyIp}?ed=2176","headers":{"host":"${hostname}"}}}\n`);
+                newProxiesNameList.push(`- ${goodIP.country}${i}\n`);
+				proxyGroupCountry.proxies.push(`${goodIP.country}${i}`);
+            }
+
+            bestSpeedIpList.push({ ip: thisProxyIp, speed });
+        }
+		if (proxyGroupCountry.proxies.length > 0) {
+			proxyGroupCountryList.push(proxyGroupCountry);
 		}
+    });
 
-		let specProxyIp = goodIP.proxyIP[0];
-		const cfIPCount = goodIP.cfIP ? goodIP.cfIP.length : 0;
+    bestSpeedIpList.sort((a, b) => b.speed - a.speed);
+    const topBestSpeedIpList = bestSpeedIpList.slice(0, topBestIPCount).map(item => item.ip);
 
-		for (let i = 0; i < goodIP.proxyIP.length + cfIPCount; i++) {
-			let thisProxyIp;
-			if (i < goodIP.proxyIP.length) {
-				if (goodIP.proxyIPSpeed && reqSpeed > goodIP.proxyIPSpeed[i]) {
-				continue;
-				}
-				thisProxyIp = goodIP.proxyIP[i];
-				specProxyIp = thisProxyIp;
-			} else {
-				if (goodIP.cfIPSpeed && reqSpeed > goodIP.cfIPSpeed[i - goodIP.proxyIP.length]) {
-				continue;
-				}
-				thisProxyIp = goodIP.cfIP[i - goodIP.proxyIP.length];
-			}
-
-			if (type === 'v') {
-				newProxiesList.push(`${proto}://${userID}@${thisProxyIp}:443?encryption=none&security=tls&type=ws&host=${hostname}&sni=${hostname}&fp=random&path=%2Fproxyip%3D${specProxyIp}%2F%3Fed%3D2176#${goodIP.country}${i}\n`);
-			} else if (type === 'c') {
-				newProxiesList.push(`- {"name":"${goodIP.country}${i}","type":"${proto}","server":"${thisProxyIp}","port":443,"uuid":"${userID}","tls":true,"servername":"${hostname}","network":"ws","ws-opts":{"path":"/proxyip=${specProxyIp}?ed=2176","headers":{"host":"${hostname}"}}}\n`);
-				newProxiesNameList.push(`- ${goodIP.country}${i}\n`);
-			}
-		}
-	});
-
-	if (type === 'v') {
-		return newProxiesList;
-	} else if (type === 'c') {
-		return { newProxiesList, newProxiesNameList };
-	}
+    if (type === 'v') {
+        return newProxiesList;
+    } else if (type === 'c') {
+        return { newProxiesList, newProxiesNameList, topBestSpeedIpList, proxyGroupCountryList };
+    }
 }
-  
+
 async function handleStoreRequest(request, env) {
 	try {
 	  // 解析请求体中的JSON
