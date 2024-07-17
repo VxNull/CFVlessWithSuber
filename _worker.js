@@ -7,12 +7,12 @@ import { connect } from 'cloudflare:sockets';
 let userID = '77a571fb-4fd2-4b37-8596-1b7d9728bb5c';
 
 const c_goodips = [
-	{country:"JP", proxyIP:["168.138.46.67","140.238.52.86","140.238.37.208","146.56.38.45"], cfIP: ["154.92.9.201","172.64.40.4","172.64.33.121","64.110.104.30"] }, 
-	{country:"KR", proxyIP:["132.145.81.117","140.238.28.86"], cfIP: [] }, 
-	{country:"SG", proxyIP:["8.222.225.193","8.222.208.38","52.220.43.42"], cfIP: [] }, 
-	{country:"NL", proxyIP:["185.121.225.144","89.110.64.238","94.131.106.61"], cfIP: [] }, 
-	{country:"GB", proxyIP:["212.118.252.156","5.10.244.233","193.149.190.163"], cfIP: [] }, 
-	{country:"US", proxyIP:["152.70.249.67"], cfIP: ["172.67.162.248","172.67.202.136","104.18.125.66"] }, 
+	{country:"JP", proxyIP:["168.138.46.67","140.238.52.86","140.238.37.208","146.56.38.45"], cfIP: ["154.92.9.201","172.64.40.4","172.64.33.121","64.110.104.30"] },
+	{country:"KR", proxyIP:["132.145.81.117","140.238.28.86"], cfIP: [] },
+	{country:"SG", proxyIP:["8.222.225.193","8.222.208.38","52.220.43.42"], cfIP: [] },
+	{country:"NL", proxyIP:["185.121.225.144","89.110.64.238","94.131.106.61"], cfIP: [] },
+	{country:"GB", proxyIP:["212.118.252.156","5.10.244.233","193.149.190.163"], cfIP: [] },
+	{country:"US", proxyIP:["152.70.249.67"], cfIP: ["172.67.162.248","172.67.202.136","104.18.125.66"] },
 ];
 const MPRO = 'dmxlc3M=';
 // default random proxyIP pools
@@ -72,12 +72,12 @@ export default {
 							// 获取所有键名，即所有国家
 							const listResult = await env.GOODIP_KV.list();
 							const countries = listResult.keys.map(key => key.name);
-					
+
 							// 获取所有GoodIp对象
 							if (countries.length) {
 								goodIps = [];
 							}
-							
+
 							for (const country of countries) {
 								const value = await env.GOODIP_KV.get(country);
 								if (value) {
@@ -228,14 +228,14 @@ function generateProxiesList(goodIps, userID, hostname, reqSpeed, topBestIPCount
                     continue;
                 }
                 thisProxyIp = goodIP.proxyIP[i];
-                speed = goodIP.proxyIPSpeed[i];
+                speed = goodIP.proxyIPSpeed? goodIP.proxyIPSpeed[i] : -1;
                 specProxyIp = thisProxyIp;
             } else {
                 if (goodIP.cfIPSpeed && reqSpeed > goodIP.cfIPSpeed[i - goodIP.proxyIP.length]) {
                     continue;
                 }
                 thisProxyIp = goodIP.cfIP[i - goodIP.proxyIP.length];
-                speed = goodIP.cfIPSpeed[i - goodIP.proxyIP.length];
+                speed = goodIP.cfIPSpeed? goodIP.cfIPSpeed[i - goodIP.proxyIP.length] : -1;
             }
 
             if (type === 'v') {
@@ -253,12 +253,11 @@ function generateProxiesList(goodIps, userID, hostname, reqSpeed, topBestIPCount
 		}
     });
 
-    bestSpeedIpList.sort((a, b) => b.speed - a.speed);
-    const topBestSpeedIpList = bestSpeedIpList.slice(0, topBestIPCount).map(item => item.ip);
-
     if (type === 'v') {
         return newProxiesList;
     } else if (type === 'c') {
+		bestSpeedIpList.sort((a, b) => b.speed - a.speed);
+		const topBestSpeedIpList = bestSpeedIpList.slice(0, topBestIPCount).map(item => item.ip);
         return { newProxiesList, newProxiesNameList, topBestSpeedIpList, proxyGroupCountryList };
     }
 }
@@ -267,12 +266,12 @@ async function handleStoreRequest(request, env) {
 	try {
 	  // 解析请求体中的JSON
 	  const goodIps = await request.json();
-	  
+
 	  // 存储每个GoodIp对象到KV存储中，以Country为键
 	  for (const goodIp of goodIps) {
 		await env.GOODIP_KV.put(goodIp.country, JSON.stringify(goodIp));
 	  }
-  
+
 	  // 返回一个响应
 	  return new Response(JSON.stringify({ message: 'Data received and stored successfully', data: goodIps }), {
 		headers: { 'Content-Type': 'application/json' }
@@ -284,7 +283,7 @@ async function handleStoreRequest(request, env) {
 		  });
 	}
   }
-  
+
 
 async function handleGetCountriesRequest(env) {
 	try {
@@ -314,7 +313,7 @@ async function handleGetCountriesRequest(env) {
 }
 
 /**
- * 
+ *
  * @param {import("@cloudflare/workers-types").Request} request
  */
 async function vlessOverWSHandler(request) {
@@ -439,7 +438,7 @@ async function checkUuidInApiResponse(targetUuid) {
 /**
  * Handles outbound TCP connections.
  *
- * @param {any} remoteSocket 
+ * @param {any} remoteSocket
  * @param {string} addressRemote The remote address to connect to.
  * @param {number} portRemote The remote port to connect to.
  * @param {Uint8Array} rawClientData The raw client data to write.
@@ -483,7 +482,7 @@ async function handleTCPOutBound(remoteSocket, addressRemote, portRemote, rawCli
 }
 
 /**
- * 
+ *
  * @param {import("@cloudflare/workers-types").WebSocket} webSocketServer
  * @param {string} earlyDataHeader for ws 0rtt
  * @param {(info: string)=> void} log for ws 0rtt
@@ -552,10 +551,10 @@ function makeReadableWebSocketStream(webSocketServer, earlyDataHeader, log) {
 // https://github.com/zizifn/excalidraw-backup/blob/main/v2ray-protocol.excalidraw
 
 /**
- * 
- * @param { ArrayBuffer} vlessBuffer 
- * @param {string} userID 
- * @returns 
+ *
+ * @param { ArrayBuffer} vlessBuffer
+ * @param {string} userID
+ * @returns
  */
 async function processVlessHeader(
 	vlessBuffer,
@@ -678,12 +677,12 @@ async function processVlessHeader(
 
 
 /**
- * 
- * @param {import("@cloudflare/workers-types").Socket} remoteSocket 
- * @param {import("@cloudflare/workers-types").WebSocket} webSocket 
- * @param {ArrayBuffer} vlessResponseHeader 
+ *
+ * @param {import("@cloudflare/workers-types").Socket} remoteSocket
+ * @param {import("@cloudflare/workers-types").WebSocket} webSocket
+ * @param {ArrayBuffer} vlessResponseHeader
  * @param {(() => Promise<void>) | null} retry
- * @param {*} log 
+ * @param {*} log
  */
 async function remoteSocketToWS(remoteSocket, webSocket, vlessResponseHeader, retry, log) {
 	// remote--> ws
@@ -698,9 +697,9 @@ async function remoteSocketToWS(remoteSocket, webSocket, vlessResponseHeader, re
 				start() {
 				},
 				/**
-				 * 
-				 * @param {Uint8Array} chunk 
-				 * @param {*} controller 
+				 *
+				 * @param {Uint8Array} chunk
+				 * @param {*} controller
 				 */
 				async write(chunk, controller) {
 					hasIncomingData = true;
@@ -749,9 +748,9 @@ async function remoteSocketToWS(remoteSocket, webSocket, vlessResponseHeader, re
 }
 
 /**
- * 
- * @param {string} base64Str 
- * @returns 
+ *
+ * @param {string} base64Str
+ * @returns
  */
 function base64ToArrayBuffer(base64Str) {
 	if (!base64Str) {
@@ -770,7 +769,7 @@ function base64ToArrayBuffer(base64Str) {
 
 /**
  * This is not real UUID validation
- * @param {string} uuid 
+ * @param {string} uuid
  */
 function isValidUUID(uuid) {
 	const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -810,10 +809,10 @@ function stringify(arr, offset = 0) {
 
 
 /**
- * 
- * @param {import("@cloudflare/workers-types").WebSocket} webSocket 
- * @param {ArrayBuffer} vlessResponseHeader 
- * @param {(string)=> void} log 
+ *
+ * @param {import("@cloudflare/workers-types").WebSocket} webSocket
+ * @param {ArrayBuffer} vlessResponseHeader
+ * @param {(string)=> void} log
  */
 async function handleUDPOutBound(webSocket, vlessResponseHeader, log) {
 
@@ -872,8 +871,8 @@ async function handleUDPOutBound(webSocket, vlessResponseHeader, log) {
 
 	return {
 		/**
-		 * 
-		 * @param {Uint8Array} chunk 
+		 *
+		 * @param {Uint8Array} chunk
 		 */
 		write(chunk) {
 			writer.write(chunk);
@@ -910,12 +909,12 @@ async function nginx() {
 	<h1>Welcome to nginx!</h1>
 	<p>If you see this page, the nginx web server is successfully installed and
 	working. Further configuration is required.</p>
-	
+
 	<p>For online documentation and support please refer to
 	<a href="http://nginx.org/">nginx.org</a>.<br/>
 	Commercial support is available at
 	<a href="http://nginx.com/">nginx.com</a>.</p>
-	
+
 	<p><em>Thank you for using nginx.</em></p>
 	</body>
 	</html>
