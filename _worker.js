@@ -69,19 +69,27 @@ export default {
 						//Read all goodip
 						let goodIps = c_goodips;
 						if(env.GOODIP_KV) {
-							// 获取所有键名，即所有国家
-							const listResult = await env.GOODIP_KV.list();
-							const countries = listResult.keys.map(key => key.name);
 
-							// 获取所有GoodIp对象
-							if (countries.length) {
-								goodIps = [];
-							}
+							//判定是否存有goodips KV
+							const kv_goodips = await env.GOODIP_KV.get("GOODIPS");
+							if (kv_goodips) {
+								goodIps = JSON.parse(kv_goodips);
+							} else {
+								//兼容旧版本-分散存储
+								// 获取所有键名，即所有国家
+								const listResult = await env.GOODIP_KV.list();
+								const countries = listResult.keys.map(key => key.name);
 
-							for (const country of countries) {
-								const value = await env.GOODIP_KV.get(country);
-								if (value) {
-									goodIps.push(JSON.parse(value));
+								// 获取所有GoodIp对象
+								if (countries.length) {
+									goodIps = [];
+								}
+
+								for (const country of countries) {
+									const value = (country.length==2)? await env.GOODIP_KV.get(country):null;
+									if (value) {
+										goodIps.push(JSON.parse(value));
+									}
 								}
 							}
 						}
@@ -123,7 +131,7 @@ export default {
 
 async function handleVlSub(goodIps, userID, request, israw, reqSpeed) {
 	const hostname = request.headers.get('Host');
-	const newProxiesList = generateProxiesList(goodIps, userID, hostname, reqSpeed, 1, 'v');
+	const newProxiesList = generateProxiesList(goodIps, userID, hostname, reqSpeed, 'v');
 
 	let theSub = newProxiesList.join('');
 	if (!israw) {
@@ -142,7 +150,7 @@ async function handleClSub(goodIps, clash_template_url, userID, request, reqSpee
 	const clashConfigTemplate = await templateResponse.text();
 	const hostname = request.headers.get('Host');
 
-	const { newProxiesList, newProxiesNameList, topBestSpeedIpList, proxyGroupCountryList } = generateProxiesList(goodIps, userID, hostname, reqSpeed, 5, 'c');
+	const { newProxiesList, newProxiesNameList, topBestSpeedIpList, proxyGroupCountryList } = generateProxiesList(goodIps, userID, hostname, reqSpeed, 'c');
 
 	// 替换配置文件中的 {{topip[0]}} 占位符
 	let updatedConfig = clashConfigTemplate.replace(
@@ -198,7 +206,7 @@ async function handleClSub(goodIps, clash_template_url, userID, request, reqSpee
 	});
 }
 
-function generateProxiesList(goodIps, userID, hostname, reqSpeed, topBestIPCount, type) {
+function generateProxiesList(goodIps, userID, hostname, reqSpeed, type) {
     const newProxiesList = [];
     const newProxiesNameList = [];
     const bestSpeedIpList = [];
@@ -257,7 +265,7 @@ function generateProxiesList(goodIps, userID, hostname, reqSpeed, topBestIPCount
         return newProxiesList;
     } else if (type === 'c') {
 		bestSpeedIpList.sort((a, b) => b.speed - a.speed);
-		const topBestSpeedIpList = bestSpeedIpList.slice(0, topBestIPCount).map(item => item.ip);
+		const topBestSpeedIpList = bestSpeedIpList.map(item => item.ip);
         return { newProxiesList, newProxiesNameList, topBestSpeedIpList, proxyGroupCountryList };
     }
 }
@@ -267,10 +275,8 @@ async function handleStoreRequest(request, env) {
 	  // 解析请求体中的JSON
 	  const goodIps = await request.json();
 
-	  // 存储每个GoodIp对象到KV存储中，以Country为键
-	  for (const goodIp of goodIps) {
-		await env.GOODIP_KV.put(goodIp.country, JSON.stringify(goodIp));
-	  }
+	  // 存储到指定KV键中
+	  await env.GOODIP_KV.put("GOODIPS", JSON.stringify(goodIps));
 
 	  // 返回一个响应
 	  return new Response(JSON.stringify({ message: 'Data received and stored successfully', data: goodIps }), {
@@ -287,21 +293,27 @@ async function handleStoreRequest(request, env) {
 
 async function handleGetCountriesRequest(env) {
 	try {
-		// 获取所有键名，即所有国家
-		const listResult = await env.GOODIP_KV.list();
-		const countries = listResult.keys.map(key => key.name);
+		let goodIps = [];
+		//判定是否存有goodips KV
+		const kv_goodips = await env.GOODIP_KV.get("GOODIPS");
+		if (kv_goodips) {
+			goodIps = JSON.parse(kv_goodips);
+		} else {
+			// 兼容旧版本，分散存储，获取所有键名，即所有国家
+			const listResult = await env.GOODIP_KV.list();
+			const countries = listResult.keys.map(key => key.name);
 
-		// 获取所有GoodIp对象
-		const goodIps = [];
-		for (const country of countries) {
-			const value = await env.GOODIP_KV.get(country);
-			if (value) {
-				goodIps.push(JSON.parse(value));
+			// 获取所有GoodIp对象
+			for (const country of countries) {
+				const value = (country.length==2)? await env.GOODIP_KV.get(country):null;
+				if (value) {
+					goodIps.push(JSON.parse(value));
+				}
 			}
 		}
 
 		// 返回包含国家列表和GoodIp对象的响应
-		return new Response(JSON.stringify({ countries, goodIps }), {
+		return new Response(JSON.stringify(goodIps), {
 		headers: { 'Content-Type': 'application/json' }
 		});
 	} catch (error) {
