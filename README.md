@@ -1,6 +1,6 @@
 # CFVlessWithSuber
 
-Vless script work on CF worker and pages with suber
+Vless script work on CF worker and pages with Subscriber
 自带定阅器的多ProxyIP，多合一Vless脚本
 
 ## 特点
