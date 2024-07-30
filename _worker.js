@@ -942,7 +942,7 @@ async function nginx() {
  */
 function countryCodeEmoji(cc) {
 	// country code regex
-	const CC_REGEX = /^[a-z A-Z]{2}$/i;
+	const CC_REGEX = /^[a-z]{2}$/i;
 	// offset between uppercase ascii and regional indicator symbols
 	const OFFSET = 127397;
 	if (!CC_REGEX.test(cc)) {
