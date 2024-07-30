@@ -160,7 +160,7 @@ async function handleClSub(goodIps, clash_template_url, userID, request, reqSpee
 
 	//proxyGroupCountryList生成proxy_groups_country_name_list
 	let proxy_groups_country_name_list = proxyGroupCountryList.map(proxyGroup => {
-		return `- ${proxyGroup.country}\n`;
+		return `- ${countryCodeEmoji(proxyGroup.country)}${proxyGroup.country}\n`;
 	});
 
 	//替换#      - {{proxy_groups_country_name_list}}
@@ -172,7 +172,7 @@ async function handleClSub(goodIps, clash_template_url, userID, request, reqSpee
 	// proxyGroupCountryList 生成 proxy_groups_list_by_country
 	let proxy_groups_list_by_country = [];
 	proxyGroupCountryList.forEach(proxyGroup => {
-		proxy_groups_list_by_country.push(`- name: ${proxyGroup.country}\n`);
+		proxy_groups_list_by_country.push(`- name: ${countryCodeEmoji(proxyGroup.country)}${proxyGroup.country}\n`);
 		proxy_groups_list_by_country.push(`  type: load-balance\n`);
 		proxy_groups_list_by_country.push(`  proxies:\n`);
 		let proxies = proxyGroup.proxies;
@@ -247,7 +247,7 @@ function generateProxiesList(goodIps, userID, hostname, reqSpeed, type) {
             }
 
             if (type === 'v') {
-                newProxiesList.push(`${proto}://${userID}@${thisProxyIp}:443?encryption=none&security=tls&type=ws&host=${hostname}&sni=${hostname}&fp=random&path=%2Fproxyip%3D${specProxyIp}%2F%3Fed%3D2176#${goodIP.country}${i}\n`);
+                newProxiesList.push(`${proto}://${userID}@${thisProxyIp}:443?encryption=none&security=tls&type=ws&host=${hostname}&sni=${hostname}&fp=random&path=%2Fproxyip%3D${specProxyIp}%2F%3Fed%3D2176#${countryCodeEmoji(goodIP.country)}${goodIP.country}${i}\n`);
             } else if (type === 'c') {
                 newProxiesList.push(`- {"name":"${goodIP.country}${i}","type":"${proto}","server":"${thisProxyIp}","port":443,"uuid":"${userID}","tls":true,"servername":"${hostname}","network":"ws","ws-opts":{"path":"/proxyip=${specProxyIp}?ed=2176","headers":{"host":"${hostname}"}}}\n`);
                 newProxiesNameList.push(`- ${goodIP.country}${i}\n`);
@@ -932,4 +932,23 @@ async function nginx() {
 	</html>
 	`
 	return text ;
+}
+
+
+/**
+ * convert country code to corresponding flag emoji
+ * @param {string} cc - country code string
+ * @returns {string} flag emoji
+ */
+function countryCodeEmoji(cc) {
+	// country code regex
+	const CC_REGEX = /^[a-z A-Z]{2}$/i;
+	// offset between uppercase ascii and regional indicator symbols
+	const OFFSET = 127397;
+	if (!CC_REGEX.test(cc)) {
+	return '';
+	}
+
+	const codePoints = [...cc.toUpperCase()].map(c => c.codePointAt() + OFFSET);
+	return String.fromCodePoint(...codePoints);
 }
