@@ -124,4 +124,4 @@ Vless script work on CF worker and pages with Subscriber
 ## 感谢
 
 [cmliu](https://github.com/cmliu/edgetunnel)
-
+[thekelvinliu](https://github.com/thekelvinliu/country-code-emoji)
